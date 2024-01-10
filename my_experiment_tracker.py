@@ -6,6 +6,8 @@ from keras.models import Model, Sequential
 import cv2
 import mlflow
 from mlflow.models import ModelSignature, infer_signature
+import matplotlib.pyplot as plt
+from plot_utils import plot_loss_acc
 
 # Use to activate the  UI server
 # mlflow server --host 127.0.0.1 --port 8080
@@ -15,7 +17,7 @@ mlflow.set_tracking_uri("http://127.0.0.1:8080")
 # export MLFLOW_TRACKING_URI=http://localhost:5000
 
 
-
+mlflow.set_experiment("Cats_vs_Dogs Experiment")
 
 train_data = tfds.load('cats_vs_dogs', split='train[:80%]', data_dir='Datasets/training_dir', as_supervised=True)
 test_data = tfds.load('cats_vs_dogs', split='train[80%:90%]', data_dir='Datasets/test_dir', as_supervised=True)
@@ -38,7 +40,7 @@ test_batches = augmented_test_data.batch(hyper_parameters['batch_size'])
 
 signature = infer_signature(train_data[0], train_data[1])
 
-def make_model():
+def make_model(hyper_params):
     inputs = keras.Input((300,300), dtype='float32')
     images = keras.layers.Conv2D(16, (3,3), activation='relu')(inputs)
     images = keras.layers.MaxPool2D((2,2))(images)
@@ -51,26 +53,32 @@ def make_model():
     images = keras.layers.Dense(1, activation='sigmoid')
 
     model = Model(inputs, images)
-    return model
-
-model = make_model()
-print(model.summary())
-
-def compile_and_run_model(hyper_params, training, validation, testing):
-    model = make_model()
 
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=hyper_params['learning_rate']),
                   loss='binary_crossentropy',
                    metrics=['accuracy', 'loss'])
     
+    return model
+
+model = make_model()
+
+
+print(model.summary())
+
+def run_model(hyper_params, training, validation, testing):
+    model = make_model(hyper_params)
+
+    
+    
     with mlflow.start_run() as run:
 
-        model.fit(training, 
+        history = model.fit(training, 
                   validation_data=validation,
                    batch_size=hyper_params['batch_size'], 
                    epochs=hyper_params['epochs'],)
         
         results = model.evaluate(testing)
+        print(model.metrics_names)
 
         binary_crossentropy = results[0]
         accuracy = results[1]
@@ -79,13 +87,13 @@ def compile_and_run_model(hyper_params, training, validation, testing):
 
         mlflow.log_params(hyper_params)
         mlflow.log_metrics(metrics=metrics)
+
+        plot_loss_acc(history)
+        # Log model
         mlflow.tensorflow.log_model(model, "model", signature=signature)
-        #(model, "model", signature=signature)
+
+
 
         return model
 
-model = compile_and_run_model(hyper_parameters, train_batches, validation_batches, test_batches)
-
-    
-
-
+model = run_model(hyper_parameters, train_batches, validation_batches, test_batches)
