@@ -1,13 +1,15 @@
+import numpy as np
 import tensorflow as tf
-import numpy as np 
-import keras
 import tensorflow_datasets as tfds 
-from keras.models import Model, Sequential
-import cv2
+import keras
+from keras.models import Model
 import mlflow
 from mlflow.models import ModelSignature, infer_signature
+from mlflow.types.schema import Schema, TensorSpec
+import cv2
 import matplotlib.pyplot as plt
-from plot_utils import plot_loss_acc
+from utils import *
+
 
 # Use to activate the  UI server
 # mlflow server --host 127.0.0.1 --port 8080
@@ -23,13 +25,27 @@ train_data = tfds.load('cats_vs_dogs', split='train[:80%]', data_dir='Datasets/t
 test_data = tfds.load('cats_vs_dogs', split='train[80%:90%]', data_dir='Datasets/test_dir', as_supervised=True)
 validation_data= tfds.load('cats_vs_dogs', split='train[-10%:]', data_dir='Datasets/validation_dir', as_supervised=True)
 
-def augment_images(image, label):
-    image = tf.cast(image, dtype=tf.float32)
-    image = tf.image.resize(images=image, size=(300,300))
-    image = image / 255.0
-    return image, label
+
 
 hyper_parameters = {'learning_rate':0.001, 'batch_size': 32, 'drop_out': None, 'epochs':5}
+
+# Option 1: manually construct the signature object
+input_schema = Schema(
+    [
+        TensorSpec(np.dtype(np.float32), (-1, 300, 300))
+    ]
+)
+
+output_schema = Schema(
+    [
+        TensorSpec(np.dtype(np.float32), (-1, 1))
+        ]
+        )
+
+signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+# Option 2: Infer the signature
+# signature = infer_signature(train_data[0], train_data[1])
+
 
 augmented_train_data = train_data.map(augment_images)
 train_batches = augmented_train_data.shuffle(1024).batch(hyper_parameters['batch_size'])
@@ -38,32 +54,8 @@ validation_batches = augmented_valid_data.batch(hyper_parameters['batch_size'])
 augmented_test_data = test_data.map(augment_images)
 test_batches = augmented_test_data.batch(hyper_parameters['batch_size'])
 
-signature = infer_signature(train_data[0], train_data[1])
-
-def make_model(hyper_params):
-    inputs = keras.Input((300,300), dtype='float32')
-    images = keras.layers.Conv2D(16, (3,3), activation='relu')(inputs)
-    images = keras.layers.MaxPool2D((2,2))(images)
-    images = keras.layers.Conv2D(32,(3,3), activation='relu')(images)
-    images = keras.layers.MaxPool2D(2,2)(images)
-    images = keras.layers.Conv2D(64,(3,3), activation='relu')(images)
-    images = keras.layers.MaxPool2D(2,2)(images)
-    images = keras.layers.Flatten()(images)
-    images = keras.layers.Dense(512, activation='relu')(images)
-    images = keras.layers.Dense(1, activation='sigmoid')
-
-    model = Model(inputs, images)
-
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=hyper_params['learning_rate']),
-                  loss='binary_crossentropy',
-                   metrics=['accuracy', 'loss'])
-    
-    return model
 
 model = make_model()
-
-
-print(model.summary())
 
 def run_model(hyper_params, training, validation, testing):
     model = make_model(hyper_params)
@@ -78,7 +70,7 @@ def run_model(hyper_params, training, validation, testing):
                    epochs=hyper_params['epochs'],)
         
         results = model.evaluate(testing)
-        print(model.metrics_names)
+        #print(model.metrics_names)
 
         binary_crossentropy = results[0]
         accuracy = results[1]
@@ -89,11 +81,18 @@ def run_model(hyper_params, training, validation, testing):
         mlflow.log_metrics(metrics=metrics)
 
         plot_loss_acc(history)
+
         # Log model
-        mlflow.tensorflow.log_model(model, "model", signature=signature)
+        mlflow.tensorflow.log_model(model, artifact_path = "model", signature=signature)
+
+        model_uri = run.info.artifact_uri + "/model"
 
 
 
-        return model
+        return model, model_uri
 
-model = run_model(hyper_parameters, train_batches, validation_batches, test_batches)
+model, model_uri = run_model(hyper_parameters, train_batches, validation_batches, test_batches)
+
+loaded_model = mlflow.tensorflow.load_model(model_uri)
+
+predictions = loaded_model.predict(test_batches[0])
