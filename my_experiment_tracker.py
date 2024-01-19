@@ -21,7 +21,13 @@ mlflow.set_tracking_uri("http://127.0.0.1:8080")
 
 mlflow.set_experiment("Cats_vs_Dogs Experiment")
 
-train_data = tfds.load('cats_vs_dogs', split='train[:80%]', data_dir='Datasets/training_dir', as_supervised=True)
+#setattr(tfds.image_classification.cats_vs_dogs, 
+      #  '_URL',
+    #    "https://download.microsoft.com/download/3/E/1/3E1C3F21-ECDB-4869-8368-6DEBA77B919F/kagglecatsanddogs_5340.zip")
+
+tfds.image_classification.cats_vs_dogs.CatsVsDogs._generate_examples = _generate_examples
+
+train_data = tfds.load('cats_vs_dogs', split='train[:80%]', data_dir='Datasets/training_dir', as_supervised=True, download = True)
 test_data = tfds.load('cats_vs_dogs', split='train[80%:90%]', data_dir='Datasets/test_dir', as_supervised=True)
 validation_data= tfds.load('cats_vs_dogs', split='train[-10%:]', data_dir='Datasets/validation_dir', as_supervised=True)
 
@@ -96,3 +102,4 @@ model, model_uri = run_model(hyper_parameters, train_batches, validation_batches
 loaded_model = mlflow.tensorflow.load_model(model_uri)
 
 predictions = loaded_model.predict(test_batches[0])
+print(predictions)

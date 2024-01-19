@@ -3,3 +3,9 @@ Myprojects - Shortcut.lnk
 convolution_tensorflow
 mlruns/
 test_sumthing.py
+just_to_view_plots.py
+tmp/
+experiment_tracker.py
+*.zip
+*tar
+__pycache__/

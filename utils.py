@@ -3,6 +3,83 @@ import mlflow
 import tensorflow as tf
 import keras
 from keras.models import Model
+import numpy
+import re
+import tensorflow as tf
+import tensorflow_datasets as tfds
+import io
+import zipfile
+import logging
+
+import os
+import shutil
+import random
+import zipfile
+import tarfile
+
+def unzip_file(base_dir:str,  file_path:str ):
+
+  # unzips the dataset
+  for file in file_path:
+    if file.endswith('.zip'):
+      with zipfile.ZipFile(file, 'r') as zip:
+        zip.extractall(base_dir)
+    else:
+      with tarfile.open(file, 'r') as tar:
+        tar.extractall(base_dir)
+
+
+def aggregate_files(base_dir):
+  """Aggregates datasets to a single folder.
+     Args:
+        base_dir: the path to the directory to be processed
+  """
+
+  base_dogs_dir = os.path.join(base_dir, 'PetImages/Dog')
+  base_cats_dir = os.path.join(base_dir,'PetImages/Cat')
+
+  raw_birds_dir = '/tmp/data/CUB_200_2011/images'
+
+  # make a directory to match that of the cats and Dogs
+
+  base_birds_dir = os.path.join(base_dir,'PetImages/Bird')
+  os.mkdir(base_birds_dir)
+
+  # merge the directories to one
+  for subdir in os.listdir(raw_birds_dir):
+    subdir_path = os.path.join(raw_birds_dir, subdir)
+    for image in os.listdir(subdir_path):
+      shutil.move(os.path.join(subdir_path, image), os.path.join(base_birds_dir))
+
+  return base_birds_dir, base_cats_dir, base_dogs_dir
+
+def move_to_destination(origin, destination, percentage_split):
+  num_images = int(len(os.listdir(origin))*percentage_split)
+  for image_name, image_number in zip(sorted(os.listdir(origin)), range(num_images)):
+    shutil.move(os.path.join(origin, image_name), destination)
+
+
+def remove_zerobyte_jpg_files(directory):
+ """Removes zero-byte files with a .jpg extension and non-jpg files from a directory.
+
+ Args:
+   directory: The path to the directory to be processed.
+ """
+
+ for root, _, files in os.walk(directory):
+   for file in files:
+     file_path = os.path.join(root, file)
+
+     try:
+       if os.path.getsize(file_path) == 0 and file.lower().endswith('.jpg'):
+         os.remove(file_path)
+         print(f"Removed zero-byte JPG file: {file_path}")
+       elif not file.lower().endswith('.jpg'):
+         os.remove(file_path)
+         print(f"Removed non-JPG file: {file_path}")
+     except OSError as e:
+       print(f"Error removing file: {file_path} ({e})")
+
 
 def plot_loss_acc(history):
   '''Plots the training and validation loss and accuracy from a history object
