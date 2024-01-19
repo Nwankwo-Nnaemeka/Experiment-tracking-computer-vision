@@ -123,26 +123,58 @@ def augment_images(image, label):
     return image, label
 
 
-def make_model(hyper_params):
+def make_model():
     '''Creates a Neural network
     Args:
     hyper_params (dictionary) -- hyperparameters for the model
     '''
-    inputs = keras.Input((300,300), dtype='float32')
-    images = keras.layers.Conv2D(16, (3,3), activation='relu')(inputs)
+    inputs = keras.layers.Input((300,300,3), dtype='float32')
+    images = keras.layers.Conv2D(32, (3,3), activation='relu')(inputs)
     images = keras.layers.MaxPool2D((2,2))(images)
     images = keras.layers.Conv2D(32,(3,3), activation='relu')(images)
     images = keras.layers.MaxPool2D(2,2)(images)
     images = keras.layers.Conv2D(64,(3,3), activation='relu')(images)
     images = keras.layers.MaxPool2D(2,2)(images)
+    images = keras.layers.Conv2D(128,(3,3), activation='relu')(images)
+    images = keras.layers.MaxPool2D(2,2)(images)
     images = keras.layers.Flatten()(images)
     images = keras.layers.Dense(512, activation='relu')(images)
-    images = keras.layers.Dense(1, activation='sigmoid')
+    images = keras.layers.Dense(3, activation='softmax')(images)
 
     model = Model(inputs, images)
-
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=hyper_params['learning_rate']),
-                  loss='binary_crossentropy',
-                   metrics=['accuracy', 'loss'])
     
     return model
+
+def compile_model(model, hyper_params):
+  model.compile(optimizer=keras.optimizers.Adam(learning_rate=hyper_params['learning_rate']),
+                  loss=keras.losses.SparseCategoricalCrossentropy(),
+                  metrics=['accuracy', 'loss'])
+  return model
+
+from keras.preprocessing.image import ImageDataGenerator
+def preprocess_images(train_data_dir, eval_data_dir, batch_size):
+  train_data_generator = ImageDataGenerator(rescale=1./255)
+  val_data_generator = ImageDataGenerator(rescale=1./255)
+
+  train_generator = train_data_generator.flow_from_directory(train_data_dir,
+                                                             target_size=(300,300),
+                                                             batch_size=batch_size,
+                                                             class_mode='sparse')
+  
+  validation_generator = val_data_generator.flow_from_directory(eval_data_dir,
+                                                                target_size=(300,300),
+                                                                batch_size=batch_size,
+                                                                class_mode='sparse')
+  
+  return train_generator, validation_generator
+  
+def infer_sample_signature(dir):
+  train_data_generator = ImageDataGenerator(rescale=1./255)
+  sample_input = train_data_generator.flow_from_directory(
+    directory = dir,  
+    target_size=(300, 300),
+    batch_size=1, 
+    class_mode="sparse" 
+).next()
+  return sample_input 
+  

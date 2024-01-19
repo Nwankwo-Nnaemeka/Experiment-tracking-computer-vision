@@ -86,3 +86,5 @@ move_to_destination(base_birds_dir, os.path.join(BASE_DIR, 'eval/birds'), 1)
 # Sanity check 
 print(len(os.listdir(os.path.join(BASE_DIR, 'train/birds'))))
 print(len(os.listdir(os.path.join(BASE_DIR, 'eval/birds'))))
+
+remove_zerobyte_jpg_files('./tmp/data')
