@@ -14,32 +14,28 @@ mlflow.set_tracking_uri("http://127.0.0.1:8080")
 # Set experiment name
 mlflow.set_experiment("Cats_vs_Dogs Experiment")
 
+BASE_DIR = './tmp/data'
+train_data_dir = os.path.join(BASE_DIR, 'train')
+eval_data_dir = os.path.join(BASE_DIR, 'eval')
 
 hyper_parameters = {'learning_rate':0.001, 'batch_size': 32, 'drop_out': None, 'epochs':5}
 
-model = make_model()
-# model.summary()
-model = compile_model(model, hyper_parameters)
+train_generator, validation_generator = preprocess_images(train_data_dir, eval_data_dir, hyper_parameters['batch_size'])
 
-def run_model(hyper_params, training, validation, plot_image, dir_path_infer):
-    """"""
-    
-    with mlflow.start_run() as run:
+model = create_and_compile_model(hyper_parameters)
 
-        history = model.fit(training, 
-                  validation_data=validation,
-                   batch_size=hyper_params['batch_size'], 
-                   epochs=hyper_params['epochs'],)
-
-        mlflow.log_params(hyper_params)
+with mlflow.start_run() as run:
+        model, history = fit_model(model, train_generator,validation_generator,
+                  hyper_parameters )
+        mlflow.log_params(hyper_parameters)
         #mlflow.log_metrics(metrics=metrics)
 
         plot_loss_acc(history)
 
-        mlflow.log_artifact(plot_image[0])
-        mlflow.log_artifact(plot_image[1])
+        mlflow.log_artifact('accuracy.png')
+        mlflow.log_artifact('loss.png')
         # Log model
-        sample_input = infer_sample_signature(dir_path_infer)
+        sample_input = infer_sample_signature(train_data_dir)
         signature = infer_signature(sample_input, model.predict(sample_input))
 
         mlflow.tensorflow.log_model(model, artifact_path = "model", signature=signature)
@@ -48,18 +44,8 @@ def run_model(hyper_params, training, validation, plot_image, dir_path_infer):
 
 
 
-        return model, model_uri
-
 # Using image Documentation
-BASE_DIR = './tmp/data'
-train_data_dir = os.path.join(BASE_DIR, 'train')
-eval_data_dir = os.path.join(BASE_DIR, 'eval')
 
-train_generator, validation_generator = preprocess_images(train_data_dir, eval_data_dir, batch_size=hyper_parameters['batch_size'])
 
-model, model_uri = run_model(hyper_parameters, train_generator, validation_generator, ('Acuuracy.png', 'Loss.png'), train_data_dir)
-
-loaded_model = mlflow.tensorflow.load_model(model_uri)
-
-predictions = loaded_model.predict()
-print(predictions)
+#predictions = loaded_model.predict()
+#print(predictions)

@@ -97,9 +97,7 @@ def plot_loss_acc(history):
   plt.plot(epochs, val_acc, 'b', label='Validation accuracy')
   plt.title('Training and validation accuracy')
   plt.legend()
-  plt.savefig('Accuracy.png')
-  mlflow.log_artifact('Accuracy.png')
-  
+  plt.savefig('accuracy.png')
 
   plt.figure()
 
@@ -107,8 +105,8 @@ def plot_loss_acc(history):
   plt.plot(epochs, val_loss, 'b', label='Validation Loss')
   plt.title('Training and validation loss')
   plt.legend()
-  plt.savefig('Loss.png')
-  mlflow.log_artifact("Loss.png")
+  plt.savefig('loss.png')
+
   #plt.show()
 
 def augment_images(image, label):
@@ -123,7 +121,7 @@ def augment_images(image, label):
     return image, label
 
 
-def make_model():
+def create_and_compile_model(hyper_params):
     '''Creates a Neural network
     Args:
     hyper_params (dictionary) -- hyperparameters for the model
@@ -142,14 +140,22 @@ def make_model():
     images = keras.layers.Dense(3, activation='softmax')(images)
 
     model = Model(inputs, images)
+    loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=hyper_params['learning_rate']),
+                  loss=loss_fn,
+                  metrics=['accuracy'])
     
     return model
 
-def compile_model(model, hyper_params):
-  model.compile(optimizer=keras.optimizers.Adam(learning_rate=hyper_params['learning_rate']),
-                  loss=keras.losses.SparseCategoricalCrossentropy(),
-                  metrics=['accuracy', 'loss'])
-  return model
+def fit_model(model, training, validation, hyper_params):
+    history = model.fit(
+        training,
+        validation_data=validation,
+        batch_size=hyper_params['batch_size'],
+        epochs=hyper_params['epochs']
+
+    )
+    return model, history
 
 from keras.preprocessing.image import ImageDataGenerator
 def preprocess_images(train_data_dir, eval_data_dir, batch_size):

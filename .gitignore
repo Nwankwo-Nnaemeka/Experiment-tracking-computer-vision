@@ -9,3 +9,4 @@ experiment_tracker.py
 *.zip
 *tar
 __pycache__/
+try_it.py
